@@ -97,6 +97,15 @@
 {% endif %}
 {% endif %}
 
+{% if user.rol == 'admin' %}
+<details style="margin-top: 2rem;">
+    <summary><small>Zona de peligro</small></summary>
+    <form method="post" action="/admin/borrar-validaciones" onsubmit="return confirm('¿Borrar TODAS las validaciones? Esta acción no se puede deshacer.')">
+        <button type="submit" class="outline" style="color: var(--del-color, red);">Borrar todas las validaciones</button>
+    </form>
+</details>
+{% endif %}
+
 <div style="margin-top: 2rem; text-align: center;">
     <a href="/pendiente" role="button">Revisar siguiente pendiente</a>
 </div>
