@@ -16,6 +16,7 @@
             {% if user is defined and user %}
             <li><a href="/">Dashboard</a></li>
             <li><a href="/pendiente">Revisar</a></li>
+            <li><a href="/explorar">Explorar</a></li>
             {% if user.rol == 'admin' %}
             <li><a href="/admin/usuarios">Usuarios</a></li>
             <li><a href="/admin/metricas">Métricas</a></li>
