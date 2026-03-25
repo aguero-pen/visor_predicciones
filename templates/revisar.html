@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+<hgroup>
+    <h2>Intervención #{{ row_index + 1 }} de {{ total }}</h2>
+    <p>
+        {% if validacion %}
+            <mark>Ya validada por ti — {{ "Correcta" if validacion.es_correcto else "Incorrecta" }}</mark>
+        {% else %}
+            <mark class="pending">Pendiente</mark>
+        {% endif %}
+        <small style="margin-left:0.5rem">{{ num_validaciones }} revisiones</small>
+        {% if consenso is not none %}
+            <mark class="{{ 'correct-mark' if consenso else 'incorrect-mark' }}">Consenso: {{ "Correcta" if consenso else "Incorrecta" }}</mark>
+        {% endif %}
+        <small style="margin-left:1rem">&#8592;&#8594; correcta/incorrecta &middot; Enter enviar</small>
+    </p>
+</hgroup>
+
+<!-- Metadata -->
+<details>
+    <summary><strong>{{ row.nombre_diputado }}</strong> &mdash; {{ row.fecha }} &mdash; {{ row.tipo_sesion }} #{{ row.nsesion }}</summary>
+    <small>Legislatura: {{ row.legislatura }} | Sección: {{ row.seccion_actual }} | Parte: {{ row.parte_acta }}</small>
+</details>
+
+<!-- Texto de la intervención -->
+<article>
+    <p>{{ row.intervencion }}</p>
+</article>
+
+<!-- Predicciones: todos los temas con subtemas -->
+<h4>Predicciones</h4>
+<!-- Top 2 temas lado a lado -->
+<div class="top-temas-grid">
+{% for tc in pred.temas_con_subtemas[:2] %}
+<details open class="tema-block {% if tc.tema == pred.tema %}tema-top{% endif %}">
+    <summary>
+        <span class="tema-name">{{ formato_label(tc.tema) }}</span>
+        <span class="tema-prob">{{ "%.1f"|format(tc.prob * 100) }}%</span>
+        <progress value="{{ (tc.prob * 100)|int }}" max="100" class="inline-progress"></progress>
+    </summary>
+    <table class="sub-table">
+        {% for s, p in tc.subtemas %}
+        <tr{% if s == pred.subtema %} class="subtema-top"{% endif %}>
+            <td><small>{{ formato_label(s) }}</small></td>
+            <td class="prob-cell"><small>{{ "%.1f"|format(p * 100) }}%</small></td>
+            <td class="bar-cell"><progress value="{{ (p * 100)|int }}" max="100"></progress></td>
+        </tr>
+        {% endfor %}
+    </table>
+</details>
+{% endfor %}
+</div>
+
+<!-- Resto de temas -->
+<div class="pred-grid">
+{% for tc in pred.temas_con_subtemas[2:] %}
+<details class="tema-block {% if tc.tema == pred.tema %}tema-top{% endif %}">
+    <summary>
+        <span class="tema-name">{{ formato_label(tc.tema) }}</span>
+        <span class="tema-prob">{{ "%.1f"|format(tc.prob * 100) }}%</span>
+        <progress value="{{ (tc.prob * 100)|int }}" max="100" class="inline-progress"></progress>
+    </summary>
+    <table class="sub-table">
+        {% for s, p in tc.subtemas %}
+        <tr{% if s == pred.subtema %} class="subtema-top"{% endif %}>
+            <td><small>{{ formato_label(s) }}</small></td>
+            <td class="prob-cell"><small>{{ "%.1f"|format(p * 100) }}%</small></td>
+            <td class="bar-cell"><progress value="{{ (p * 100)|int }}" max="100"></progress></td>
+        </tr>
+        {% endfor %}
+    </table>
+</details>
+{% endfor %}
+</div>
+
+<!-- Formulario de validación -->
+<article class="validation-form">
+    <form method="post" action="/validar" id="form-validar">
+        <input type="hidden" name="row_index" value="{{ row_index }}">
+        <input type="hidden" name="tema_predicho" value="{{ pred.tema }}">
+        <input type="hidden" name="subtema_predicho" value="{{ pred.subtema }}">
+        <input type="hidden" name="tiempo_segundos" id="tiempo_segundos" value="0">
+
+        <div class="grid">
+            <fieldset>
+                <div class="btn-group">
+                    <label class="btn-correct">
+                        <input type="radio" name="es_correcto" value="1"
+                               {% if not validacion or validacion.es_correcto %}checked{% endif %}
+                               onchange="toggleCorreccion(false)">
+                        Correcta
+                    </label>
+                    <label class="btn-incorrect">
+                        <input type="radio" name="es_correcto" value="0"
+                               {% if validacion and not validacion.es_correcto %}checked{% endif %}
+                               onchange="toggleCorreccion(true)">
+                        Incorrecta
+                    </label>
+                </div>
+            </fieldset>
+            <div>
+                <textarea name="notas" rows="1" placeholder="Notas (opcional)">{% if validacion and validacion.notas %}{{ validacion.notas }}{% endif %}</textarea>
+            </div>
+        </div>
+
+        <div id="correccion" style="display: {% if validacion and not validacion.es_correcto %}block{% else %}none{% endif %};">
+            <div class="grid">
+                <label>
+                    Tema correcto
+                    <select name="tema_correcto" id="tema_correcto" onchange="cargarSubtemas()">
+                        <option value="">-- Seleccionar --</option>
+                        {% for t in main_themes %}
+                        <option value="{{ t }}"
+                            {% if validacion and validacion.tema_correcto == t %}selected{% endif %}>
+                            {{ formato_label(t) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Subtema correcto
+                    <select name="subtema_correcto" id="subtema_correcto">
+                        <option value="">-- Seleccionar tema primero --</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+
+        <button type="submit" id="btn-guardar">Guardar y siguiente</button>
+    </form>
+</article>
+
+<!-- Navegación -->
+<div class="grid nav-bar">
+    {% if row_index > 0 %}
+    <a href="/revisar/{{ row_index - 1 }}" role="button" class="outline" id="btn-prev">&#8592; Anterior</a>
+    {% else %}
+    <button disabled class="outline">&#8592; Anterior</button>
+    {% endif %}
+
+    <a href="/pendiente" role="button" class="secondary outline">Aleatoria</a>
+
+    {% if row_index < total - 1 %}
+    <a href="/revisar/{{ row_index + 1 }}" role="button" class="outline" id="btn-next">Siguiente &#8594;</a>
+    {% else %}
+    <button disabled class="outline">Siguiente &#8594;</button>
+    {% endif %}
+</div>
+
+<script>
+const subthemeMap = {{ subtheme_map | tojson }};
+const validacionSubtema = "{{ validacion.subtema_correcto if validacion and validacion.subtema_correcto else '' }}";
+
+function toggleCorreccion(show) {
+    document.getElementById('correccion').style.display = show ? 'block' : 'none';
+}
+
+function cargarSubtemas() {
+    const tema = document.getElementById('tema_correcto').value;
+    const select = document.getElementById('subtema_correcto');
+    select.innerHTML = '';
+    if (!tema) {
+        select.innerHTML = '<option value="">-- Seleccionar tema primero --</option>';
+        return;
+    }
+    const subtemas = subthemeMap[tema] || [];
+    subtemas.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        const parts = s.split('_');
+        opt.textContent = parts.slice(2).join(' ').replace(/^\w/, c => c.toUpperCase()).toLowerCase().replace(/^\w/, c => c.toUpperCase());
+        if (s === validacionSubtema) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+if (document.getElementById('tema_correcto').value) {
+    cargarSubtemas();
+}
+
+// Timer
+const startTime = Date.now();
+function updateTimer() {
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    document.getElementById('tiempo_segundos').value = elapsed;
+}
+
+// Actualizar tiempo antes de enviar
+document.getElementById('form-validar').addEventListener('submit', function() {
+    updateTimer();
+});
+
+// Atajos de teclado
+document.addEventListener('keydown', function(e) {
+    if (['TEXTAREA', 'INPUT', 'SELECT'].includes(e.target.tagName)) return;
+
+    const radios = document.querySelectorAll('input[name="es_correcto"]');
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const current = document.querySelector('input[name="es_correcto"]:checked');
+        const next = current.value === '1' ? radios[1] : radios[0];
+        next.checked = true;
+        next.dispatchEvent(new Event('change'));
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        updateTimer();
+        document.getElementById('form-validar').submit();
+    }
+});
+</script>
+{% endblock %}
