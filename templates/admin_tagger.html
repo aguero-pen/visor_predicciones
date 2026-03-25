@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Tagger: {{ detalle.usuario.username }}</h1>
+
+<div class="grid">
+    <article>
+        <header>Validaciones</header>
+        <p class="stat-number">{{ detalle.tiempos.total_validaciones }}</p>
+    </article>
+    <article>
+        <header>Tiempo promedio</header>
+        <p class="stat-number">{{ "%.0f"|format(detalle.tiempos.tiempo_promedio or 0) }}s</p>
+        <footer>Mediana: {{ "%.0f"|format(detalle.tiempos.tiempo_mediana or 0) }}s</footer>
+    </article>
+    <article>
+        <header>Tiempo total invertido</header>
+        {% set total_min = (detalle.tiempos.tiempo_total or 0) / 60 %}
+        {% if total_min > 60 %}
+        <p class="stat-number">{{ "%.1f"|format(total_min / 60) }}h</p>
+        {% else %}
+        <p class="stat-number">{{ "%.0f"|format(total_min) }}m</p>
+        {% endif %}
+    </article>
+    <article>
+        <header>Rango de tiempos</header>
+        <p class="stat-number" style="font-size:1.5rem">{{ "%.0f"|format(detalle.tiempos.tiempo_min or 0) }}s - {{ "%.0f"|format(detalle.tiempos.tiempo_max or 0) }}s</p>
+    </article>
+</div>
+
+<h3>Últimas 50 validaciones</h3>
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Resultado</th>
+            <th>Tema predicho</th>
+            <th>Subtema predicho</th>
+            <th>Corrección</th>
+            <th>Tiempo</th>
+            <th>Fecha</th>
+            <th>Notas</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for v in detalle.ultimas %}
+        <tr>
+            <td><a href="/revisar/{{ v.row_index }}">{{ v.row_index + 1 }}</a></td>
+            <td>
+                {% if v.es_correcto %}
+                <span class="correct-badge">OK</span>
+                {% else %}
+                <span class="incorrect-badge">NO</span>
+                {% endif %}
+            </td>
+            <td><small>{{ formato_label(v.tema_predicho) }}</small></td>
+            <td><small>{{ formato_label(v.subtema_predicho) }}</small></td>
+            <td>
+                {% if not v.es_correcto and v.tema_correcto %}
+                <small>{{ formato_label(v.tema_correcto) }} / {{ formato_label(v.subtema_correcto or '') }}</small>
+                {% else %}
+                <small>-</small>
+                {% endif %}
+            </td>
+            <td>{{ "%.0f"|format(v.tiempo_segundos or 0) }}s</td>
+            <td><small>{{ v.fecha_validacion.strftime('%Y-%m-%d %H:%M') if v.fecha_validacion else '' }}</small></td>
+            <td><small>{{ v.notas or '' }}</small></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="/" role="button" class="outline">Volver al dashboard</a>
+{% endblock %}
