@@ -15,7 +15,7 @@ from database import (
     autenticar_usuario, obtener_usuario, crear_usuario, listar_usuarios,
     obtener_estadisticas_global, obtener_todas_validaciones, obtener_consenso,
     obtener_temas_principales, obtener_detalle_tagger, obtener_metricas_por_clase,
-    cambiar_password, eliminar_usuario,
+    cambiar_password, eliminar_usuario, borrar_todas_validaciones,
 )
 
 app = FastAPI(title="Visor de Predicciones")
@@ -387,6 +387,15 @@ def admin_metricas(request: Request):
         "metricas": metricas,
         "formato_label": formato_label,
     })
+
+
+@app.post("/admin/borrar-validaciones")
+def admin_borrar_validaciones(request: Request):
+    user = get_current_user(request)
+    if not user or user["rol"] != "admin":
+        return RedirectResponse("/", status_code=302)
+    borrar_todas_validaciones()
+    return RedirectResponse("/", status_code=302)
 
 
 @app.get("/api/subtemas/{tema}")
