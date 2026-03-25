@@ -2,7 +2,13 @@
 {% block content %}
 <h1>Explorar intervenciones</h1>
 
-{% set base_params = "anio=" ~ anio ~ "&mes=" ~ mes ~ "&sesion=" ~ sesion %}
+{% set base_params = "anio=" ~ anio ~ "&mes=" ~ mes ~ "&sesion=" ~ sesion ~ "&diputado=" ~ (diputado|urlencode) %}
+
+{% if diputado %}
+<div class="filter-chips" style="margin-bottom:1rem;">
+    <span class="chip chip-active">{{ diputado }} <a href="/explorar?tema={{ tema }}&subtema={{ subtema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}" style="color:inherit;margin-left:0.3rem;">&times;</a></span>
+</div>
+{% endif %}
 
 <!-- Años -->
 <div class="filter-chips">
@@ -88,7 +94,7 @@
         {% for item in items %}
         <tr>
             <td><a href="/revisar/{{ item.id - 1 }}">{{ item.id }}</a></td>
-            <td><small>{{ item.nombre_diputado }}</small></td>
+            <td><small><a href="/explorar?diputado={{ item.nombre_diputado|urlencode }}&tema={{ tema }}&subtema={{ subtema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}">{{ item.nombre_diputado }}</a></small></td>
             <td><small>{{ item.fecha }}</small></td>
             <td><small>{{ item.tipo_sesion }} #{{ item.nsesion }}</small></td>
             <td><mark class="tema-badge">{{ formato_label(item.tema_principal) }}</mark></td>
