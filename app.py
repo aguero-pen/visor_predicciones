@@ -391,14 +391,15 @@ def admin_metricas(request: Request):
 
 
 @app.get("/explorar", response_class=HTMLResponse)
-def explorar(request: Request, tema: str = None, subtema: str = None, anio: str = None, mes: str = None, sesion: str = None, diputado: str = None, page: int = 1):
+def explorar(request: Request, tema: str = None, subtema: str = None, anio: str = None, mes: str = None, sesion: str = None, diputado: str = None, q_diputado: str = None, q_texto: str = None, page: int = 1):
     user = get_current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=302)
 
     filtros = obtener_filtros_explorar()
     items, total, conteos, conteos_subtema, conteos_anio = explorar_intervenciones(
-        tema=tema, subtema=subtema, anio=anio, mes=mes, sesion=sesion, diputado=diputado, page=page
+        tema=tema, subtema=subtema, anio=anio, mes=mes, sesion=sesion,
+        diputado=diputado, q_diputado=q_diputado, q_texto=q_texto, page=page
     )
     total_pages = (total + 19) // 20
 
@@ -416,6 +417,8 @@ def explorar(request: Request, tema: str = None, subtema: str = None, anio: str 
         "mes": mes or "",
         "sesion": sesion or "",
         "diputado": diputado or "",
+        "q_diputado": q_diputado or "",
+        "q_texto": q_texto or "",
         "page": page,
         "total_pages": total_pages,
         "formato_label": formato_label,
