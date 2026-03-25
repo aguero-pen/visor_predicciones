@@ -121,3 +121,39 @@ mark.incorrect-mark { background-color: #ffcdd2; color: #c62828; }
 
 td.correct { color: #2e7d32; font-weight: bold; }
 td.incorrect { color: #c62828; font-weight: bold; }
+
+/* Explorar */
+.tema-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 8px;
+    text-decoration: none;
+    text-align: center;
+    background: var(--pico-background-color);
+}
+.tema-card:hover { border-color: var(--pico-primary); }
+.tema-card-active {
+    border-color: var(--pico-primary);
+    border-width: 2px;
+    background: rgba(25, 118, 210, 0.06);
+}
+.tema-card strong { font-size: 1.5rem; }
+
+.tema-badge {
+    background: rgba(25, 118, 210, 0.1);
+    color: #1976d2;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.pagination-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0 2rem;
+}
