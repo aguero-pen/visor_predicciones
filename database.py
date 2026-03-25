@@ -327,6 +327,102 @@ def eliminar_usuario(user_id: int):
     conn.close()
 
 
+def obtener_filtros_explorar():
+    """Devuelve los valores únicos para los filtros del explorador."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT SUBSTRING(fecha,1,4) FROM intervenciones ORDER BY 1")
+    anios = [r[0] for r in cur.fetchall() if r[0]]
+    cur.execute("SELECT DISTINCT SUBSTRING(fecha,1,7) FROM intervenciones ORDER BY 1")
+    meses = [r[0] for r in cur.fetchall() if r[0]]
+    cur.execute("SELECT tipo_sesion, nsesion FROM intervenciones GROUP BY tipo_sesion, nsesion ORDER BY tipo_sesion, MIN(CAST(nsesion AS INTEGER))")
+    sesiones = [f"{r[0]} #{r[1]}" for r in cur.fetchall() if r[0]]
+    cur.close()
+    conn.close()
+    return {"anios": anios, "meses": meses, "sesiones": sesiones}
+
+
+def explorar_intervenciones(tema=None, anio=None, mes=None, sesion=None, page=1, per_page=20):
+    """Busca intervenciones con filtros y paginación. Devuelve (items, total, conteos_por_tema)."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Determinar tema principal por probabilidad máxima
+    tema_cols = [
+        "tema_1_pobreza_y_desigualdad", "tema_2_economia_y_empleo", "tema_3_gestion_politica",
+        "tema_4_medio_ambiente", "tema_5_solvencia_del_estado", "tema_6_convivencia_social", "tema_7_otro"
+    ]
+    tema_labels = [
+        "TEMA_1_POBREZA_Y_DESIGUALDAD", "TEMA_2_ECONOMIA_Y_EMPLEO", "TEMA_3_GESTION_POLITICA",
+        "TEMA_4_MEDIO_AMBIENTE", "TEMA_5_SOLVENCIA_DEL_ESTADO", "TEMA_6_CONVIVENCIA_SOCIAL", "TEMA_7_OTRO"
+    ]
+
+    # CASE para obtener el tema principal
+    greatest = "GREATEST(" + ",".join(tema_cols) + ")"
+    case_parts = " ".join(
+        f"WHEN {col} = {greatest} THEN '{label}'"
+        for col, label in zip(tema_cols, tema_labels)
+    )
+    tema_case = f"CASE {case_parts} END"
+
+    # Construir WHERE
+    conditions = []
+    params = []
+    if tema:
+        conditions.append(f"{tema_case} = %s")
+        params.append(tema)
+    if anio:
+        conditions.append("SUBSTRING(fecha,1,4) = %s")
+        params.append(anio)
+    if mes:
+        conditions.append("SUBSTRING(fecha,1,7) = %s")
+        params.append(mes)
+    if sesion:
+        parts = sesion.rsplit(" #", 1)
+        if len(parts) == 2:
+            conditions.append("tipo_sesion = %s AND nsesion = %s")
+            params.extend(parts)
+
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    # Conteos por tema (con los mismos filtros excepto tema)
+    conditions_sin_tema = [c for c, p in zip(conditions, params) if c != f"{tema_case} = %s"]
+    # Rebuild params without tema
+    params_sin_tema = []
+    if anio:
+        params_sin_tema.append(anio)
+    if mes:
+        params_sin_tema.append(mes)
+    if sesion:
+        parts = sesion.rsplit(" #", 1)
+        if len(parts) == 2:
+            params_sin_tema.extend(parts)
+
+    where_sin_tema = ("WHERE " + " AND ".join(conditions_sin_tema)) if conditions_sin_tema else ""
+    cur.execute(f"SELECT {tema_case} as tema_principal, COUNT(*) as cnt FROM intervenciones {where_sin_tema} GROUP BY tema_principal ORDER BY cnt DESC", params_sin_tema)
+    conteos = [dict(r) for r in cur.fetchall()]
+
+    # Total con filtros
+    cur.execute(f"SELECT COUNT(*) as total FROM intervenciones {where}", params)
+    total = cur.fetchone()["total"]
+
+    # Items paginados
+    offset = (page - 1) * per_page
+    cur.execute(f"""
+        SELECT id, nombre_diputado, fecha, tipo_sesion, nsesion,
+               LEFT(intervencion, 300) as intervencion_corta,
+               {tema_case} as tema_principal
+        FROM intervenciones {where}
+        ORDER BY id
+        LIMIT %s OFFSET %s
+    """, params + [per_page, offset])
+    items = [dict(r) for r in cur.fetchall()]
+
+    cur.close()
+    conn.close()
+    return items, total, conteos
+
+
 def borrar_todas_validaciones():
     conn = get_connection()
     cur = conn.cursor()
