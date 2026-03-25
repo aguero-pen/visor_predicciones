@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor de Predicciones</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>Visor de Predicciones</strong></li>
+        </ul>
+        <ul>
+            {% if user is defined and user %}
+            <li><a href="/">Dashboard</a></li>
+            <li><a href="/pendiente">Revisar</a></li>
+            {% if user.rol == 'admin' %}
+            <li><a href="/admin/usuarios">Usuarios</a></li>
+            <li><a href="/admin/metricas">Métricas</a></li>
+            {% endif %}
+            <li><small>{{ user.username }} ({{ user.rol }})</small></li>
+            <li><a href="/logout">Salir</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
