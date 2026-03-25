@@ -327,6 +327,15 @@ def eliminar_usuario(user_id: int):
     conn.close()
 
 
+def borrar_todas_validaciones():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM validaciones")
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 # --- Validaciones ---
 
 def guardar_validacion(row_index: int, usuario_id: int, tema_predicho: str, subtema_predicho: str,
