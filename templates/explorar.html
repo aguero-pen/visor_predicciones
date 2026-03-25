@@ -92,7 +92,7 @@
             <td><small>{{ item.fecha }}</small></td>
             <td><small>{{ item.tipo_sesion }} #{{ item.nsesion }}</small></td>
             <td><mark class="tema-badge">{{ formato_label(item.tema_principal) }}</mark></td>
-            <td><small>{{ formato_label(item.subtema_principal) }}</small></td>
+            <td><mark class="subtema-badge">{{ formato_label(item.subtema_principal) }}</mark></td>
             <td><small>{{ item.intervencion_corta }}{% if item.intervencion_corta|length >= 300 %}...{% endif %}</small></td>
         </tr>
         {% endfor %}
