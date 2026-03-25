@@ -1,0 +1,123 @@
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 0;
+}
+
+.stat-number.correct { color: #2e7d32; }
+.stat-number.incorrect { color: #c62828; }
+
+mark.pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* Predicciones */
+.top-temas-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.pred-grid {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.tema-block {
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+}
+
+.tema-block.tema-top {
+    border-color: #1976d2;
+    border-width: 2px;
+    background: rgba(25, 118, 210, 0.04);
+}
+
+.tema-block summary {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.tema-name { flex: 1; }
+.tema-prob { font-weight: bold; min-width: 50px; text-align: right; }
+
+.inline-progress {
+    width: 100px;
+    height: 8px;
+}
+
+.sub-table {
+    margin: 0.25rem 0 0 1rem;
+    border: none;
+}
+
+.sub-table tr { border: none; }
+.sub-table td {
+    padding: 0.1rem 0.5rem;
+    border: none;
+}
+
+.sub-table .subtema-top td {
+    font-weight: bold;
+    color: #1976d2;
+}
+
+.prob-cell { text-align: right; min-width: 50px; }
+
+.bar-cell progress {
+    width: 80px;
+    height: 6px;
+}
+
+/* Formulario de validación */
+.validation-form {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: var(--pico-background-color);
+    border-top: 2px solid var(--pico-primary);
+    margin-bottom: 0;
+}
+
+.btn-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.btn-correct { background: rgba(46, 125, 50, 0.1); }
+.btn-incorrect { background: rgba(198, 40, 40, 0.1); }
+
+.nav-bar { margin-bottom: 5rem; }
+
+mark.correct-mark { background-color: #c8e6c9; color: #2e7d32; }
+mark.incorrect-mark { background-color: #ffcdd2; color: #c62828; }
+
+.correct-badge {
+    background: #c8e6c9; color: #2e7d32; padding: 2px 8px;
+    border-radius: 4px; font-weight: bold; font-size: 0.85rem;
+}
+.incorrect-badge {
+    background: #ffcdd2; color: #c62828; padding: 2px 8px;
+    border-radius: 4px; font-weight: bold; font-size: 0.85rem;
+}
+
+td.correct { color: #2e7d32; font-weight: bold; }
+td.incorrect { color: #c62828; font-weight: bold; }
