@@ -16,6 +16,7 @@ from database import (
     obtener_estadisticas_global, obtener_todas_validaciones, obtener_consenso,
     obtener_temas_principales, obtener_detalle_tagger, obtener_metricas_por_clase,
     cambiar_password, eliminar_usuario, borrar_todas_validaciones,
+    obtener_filtros_explorar, explorar_intervenciones,
 )
 
 app = FastAPI(title="Visor de Predicciones")
@@ -385,6 +386,32 @@ def admin_metricas(request: Request):
     return templates.TemplateResponse(request, "admin_metricas.html", {
         "user": user,
         "metricas": metricas,
+        "formato_label": formato_label,
+    })
+
+
+@app.get("/explorar", response_class=HTMLResponse)
+def explorar(request: Request, tema: str = None, anio: str = None, mes: str = None, sesion: str = None, page: int = 1):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    filtros = obtener_filtros_explorar()
+    items, total, conteos = explorar_intervenciones(tema=tema, anio=anio, mes=mes, sesion=sesion, page=page)
+    total_pages = (total + 19) // 20
+
+    return templates.TemplateResponse(request, "explorar.html", {
+        "user": user,
+        "items": items,
+        "total": total,
+        "conteos": conteos,
+        "filtros": filtros,
+        "tema": tema or "",
+        "anio": anio or "",
+        "mes": mes or "",
+        "sesion": sesion or "",
+        "page": page,
+        "total_pages": total_pages,
         "formato_label": formato_label,
     })
 
