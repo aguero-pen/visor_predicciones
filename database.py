@@ -128,6 +128,34 @@ def init_db():
     if not cur.fetchone():
         cur.execute("ALTER TABLE validaciones ADD COLUMN tiempo_segundos REAL")
 
+    # Migración: columnas pre-computadas para rendimiento
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'intervenciones' AND column_name = 'tema_principal'
+    """)
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE intervenciones ADD COLUMN tema_principal TEXT")
+        cur.execute("ALTER TABLE intervenciones ADD COLUMN subtema_principal TEXT")
+        cur.execute("ALTER TABLE intervenciones ADD COLUMN anio SMALLINT")
+        cur.execute("ALTER TABLE intervenciones ADD COLUMN mes TEXT")
+        conn.commit()
+        _poblar_columnas_computadas(cur, conn)
+
+    # Extensión pg_trgm + índices
+    cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+    cur.execute("""
+        SELECT indexname FROM pg_indexes WHERE indexname = 'idx_interv_tema'
+    """)
+    if not cur.fetchone():
+        cur.execute("CREATE INDEX idx_interv_tema ON intervenciones(tema_principal)")
+        cur.execute("CREATE INDEX idx_interv_subtema ON intervenciones(subtema_principal)")
+        cur.execute("CREATE INDEX idx_interv_anio ON intervenciones(anio)")
+        cur.execute("CREATE INDEX idx_interv_diputado ON intervenciones USING gin(nombre_diputado gin_trgm_ops)")
+        cur.execute("CREATE INDEX idx_interv_texto ON intervenciones USING gin(intervencion gin_trgm_ops)")
+        cur.execute("CREATE INDEX idx_interv_sesion ON intervenciones(tipo_sesion, nsesion)")
+        cur.execute("CREATE INDEX idx_interv_mes ON intervenciones(mes)")
+        conn.commit()
+
     # Crear admin por defecto si no existe
     cur.execute("SELECT id FROM usuarios WHERE username = 'admin'")
     if not cur.fetchone():
@@ -136,6 +164,41 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
+
+
+def _poblar_columnas_computadas(cur, conn):
+    """Llena tema_principal, subtema_principal, anio, mes para todas las filas."""
+    tema_cols = [
+        "tema_1_pobreza_y_desigualdad", "tema_2_economia_y_empleo", "tema_3_gestion_politica",
+        "tema_4_medio_ambiente", "tema_5_solvencia_del_estado", "tema_6_convivencia_social", "tema_7_otro"
+    ]
+    tema_labels = [
+        "TEMA_1_POBREZA_Y_DESIGUALDAD", "TEMA_2_ECONOMIA_Y_EMPLEO", "TEMA_3_GESTION_POLITICA",
+        "TEMA_4_MEDIO_AMBIENTE", "TEMA_5_SOLVENCIA_DEL_ESTADO", "TEMA_6_CONVIVENCIA_SOCIAL", "TEMA_7_OTRO"
+    ]
+    greatest_tema = "GREATEST(" + ",".join(tema_cols) + ")"
+    tema_case = "CASE " + " ".join(
+        f"WHEN {col} = {greatest_tema} THEN '{label}'" for col, label in zip(tema_cols, tema_labels)
+    ) + " END"
+
+    # Subtema: CASE anidado por tema
+    branches = []
+    for tema_label, subtemas in SUBTHEME_MAP_DB.items():
+        sub_cols = [s.lower() for s in subtemas]
+        greatest_sub = "GREATEST(" + ",".join(sub_cols) + ")"
+        inner = " ".join(f"WHEN {col} = {greatest_sub} THEN '{label}'" for col, label in zip(sub_cols, subtemas))
+        branches.append(f"WHEN {tema_case} = '{tema_label}' THEN (CASE {inner} END)")
+    subtema_case = "CASE " + " ".join(branches) + " END"
+
+    cur.execute(f"""
+        UPDATE intervenciones SET
+            tema_principal = {tema_case},
+            subtema_principal = {subtema_case},
+            anio = CAST(SUBSTRING(fecha, 1, 4) AS SMALLINT),
+            mes = SUBSTRING(fecha, 1, 7)
+        WHERE tema_principal IS NULL
+    """)
+    conn.commit()
 
 
 # --- Intervenciones ---
@@ -185,7 +248,7 @@ def cargar_csv_a_db(csv_path: str):
     placeholders = ",".join(["%s"] * len(db_cols))
     insert_sql = f"INSERT INTO intervenciones ({','.join(db_cols)}) VALUES ({placeholders})"
 
-    with open(csv_path, "r", encoding="utf-8") as f:
+    with open(csv_path, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         batch = []
         for row in reader:
@@ -204,6 +267,7 @@ def cargar_csv_a_db(csv_path: str):
             cur.executemany(insert_sql, batch)
 
     conn.commit()
+    _poblar_columnas_computadas(cur, conn)
     cur.close()
     conn.close()
 
@@ -334,10 +398,10 @@ def obtener_filtros_explorar():
     """Devuelve los valores únicos para los filtros del explorador."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT DISTINCT SUBSTRING(fecha,1,4) FROM intervenciones ORDER BY 1")
-    anios = [r[0] for r in cur.fetchall() if r[0]]
-    cur.execute("SELECT DISTINCT SUBSTRING(fecha,1,7) FROM intervenciones ORDER BY 1")
-    meses = [r[0] for r in cur.fetchall() if r[0]]
+    cur.execute("SELECT DISTINCT anio FROM intervenciones WHERE anio IS NOT NULL ORDER BY anio")
+    anios = [str(r[0]) for r in cur.fetchall()]
+    cur.execute("SELECT DISTINCT mes FROM intervenciones WHERE mes IS NOT NULL ORDER BY mes")
+    meses = [r[0] for r in cur.fetchall()]
     cur.execute("SELECT tipo_sesion, nsesion FROM intervenciones GROUP BY tipo_sesion, nsesion ORDER BY tipo_sesion, MIN(CAST(nsesion AS INTEGER))")
     sesiones = [f"{r[0]} #{r[1]}" for r in cur.fetchall() if r[0]]
     cur.close()
@@ -422,28 +486,24 @@ def _build_subtema_top_case():
 
 
 def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion=None, diputado=None, q_diputado=None, q_texto=None, page=1, per_page=20):
-    """Busca intervenciones con filtros y paginación."""
+    """Busca intervenciones con filtros y paginación. Usa columnas pre-computadas."""
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    tema_case, tema_labels = _build_tema_subtema_cases()
-
-    # Construir WHERE
+    # Construir WHERE con columnas directas
     conditions = []
     params = []
     if tema:
-        conditions.append(f"{tema_case} = %s")
+        conditions.append("tema_principal = %s")
         params.append(tema)
     if subtema and tema:
-        subtema_case, _ = _build_subtema_case(tema)
-        if subtema_case:
-            conditions.append(f"{subtema_case} = %s")
-            params.append(subtema)
+        conditions.append("subtema_principal = %s")
+        params.append(subtema)
     if anio:
-        conditions.append("SUBSTRING(fecha,1,4) = %s")
-        params.append(anio)
+        conditions.append("anio = %s")
+        params.append(int(anio))
     if mes:
-        conditions.append("SUBSTRING(fecha,1,7) = %s")
+        conditions.append("mes = %s")
         params.append(mes)
     if sesion:
         parts = sesion.rsplit(" #", 1)
@@ -463,13 +523,13 @@ def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
     # Params base (sin tema ni subtema) para conteos
-    params_base = []
     conditions_base = []
+    params_base = []
     if anio:
-        conditions_base.append("SUBSTRING(fecha,1,4) = %s")
-        params_base.append(anio)
+        conditions_base.append("anio = %s")
+        params_base.append(int(anio))
     if mes:
-        conditions_base.append("SUBSTRING(fecha,1,7) = %s")
+        conditions_base.append("mes = %s")
         params_base.append(mes)
     if sesion:
         parts = sesion.rsplit(" #", 1)
@@ -488,39 +548,52 @@ def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion
 
     where_base = ("WHERE " + " AND ".join(conditions_base)) if conditions_base else ""
 
-    # Conteos por tema
-    cur.execute(f"SELECT {tema_case} as tema_principal, COUNT(*) as cnt FROM intervenciones {where_base} GROUP BY tema_principal ORDER BY cnt DESC", params_base)
-    conteos = [dict(r) for r in cur.fetchall()]
+    # Query única con CTE para evitar repetir filtros costosos
+    subtema_cond = f"AND tema_principal = %s" if tema else ""
+    params_subtema = (params_base + [tema]) if tema else []
 
-    # Conteos por subtema (solo si hay tema seleccionado)
-    conteos_subtema = []
-    if tema:
-        subtema_case, _ = _build_subtema_case(tema)
-        if subtema_case:
-            # Filtro base + tema
-            params_tema = list(params_base)
-            conds_tema = list(conditions_base) + [f"{tema_case} = %s"]
-            params_tema.append(tema)
-            where_tema = "WHERE " + " AND ".join(conds_tema)
-            cur.execute(f"SELECT {subtema_case} as subtema_principal, COUNT(*) as cnt FROM intervenciones {where_tema} GROUP BY subtema_principal ORDER BY cnt DESC", params_tema)
-            conteos_subtema = [dict(r) for r in cur.fetchall()]
+    cur.execute(f"""
+        WITH filtered AS (
+            SELECT id, nombre_diputado, fecha, tipo_sesion, nsesion,
+                   intervencion, tema_principal, subtema_principal, anio
+            FROM intervenciones {where}
+        ),
+        filtered_base AS (
+            SELECT tema_principal, subtema_principal, anio
+            FROM intervenciones {where_base}
+        )
+        SELECT
+            (SELECT COUNT(*) FROM filtered) as total,
+            (SELECT json_agg(r) FROM (
+                SELECT tema_principal, cnt FROM (
+                    SELECT tema_principal, COUNT(*) as cnt FROM filtered_base GROUP BY tema_principal
+                ) t ORDER BY cnt DESC
+            ) r) as conteos_tema,
+            (SELECT json_agg(r) FROM (
+                SELECT CAST(anio AS TEXT) as anio_val, cnt FROM (
+                    SELECT anio, COUNT(*) as cnt FROM filtered_base GROUP BY anio
+                ) t ORDER BY anio
+            ) r) as conteos_anio,
+            (SELECT json_agg(r) FROM (
+                SELECT subtema_principal, cnt FROM (
+                    SELECT subtema_principal, COUNT(*) as cnt FROM filtered_base
+                    WHERE {'tema_principal = %s' if tema else 'FALSE'}
+                    GROUP BY subtema_principal
+                ) t ORDER BY cnt DESC
+            ) r) as conteos_subtema
+    """, params + params_base + ([tema] if tema else []))
+    row = cur.fetchone()
+    total = row["total"]
+    conteos = row["conteos_tema"] or []
+    conteos_anio = row["conteos_anio"] or []
+    conteos_subtema = row["conteos_subtema"] or []
 
-    # Conteos por año
-    cur.execute(f"SELECT SUBSTRING(fecha,1,4) as anio_val, COUNT(*) as cnt FROM intervenciones {where_base} GROUP BY anio_val ORDER BY anio_val", params_base)
-    conteos_anio = [dict(r) for r in cur.fetchall()]
-
-    # Total con filtros
-    cur.execute(f"SELECT COUNT(*) as total FROM intervenciones {where}", params)
-    total = cur.fetchone()["total"]
-
-    # Items paginados
-    subtema_top_case = _build_subtema_top_case()
+    # Items paginados (query separada para LIMIT/OFFSET)
     offset = (page - 1) * per_page
     cur.execute(f"""
         SELECT id, nombre_diputado, fecha, tipo_sesion, nsesion,
                LEFT(intervencion, 300) as intervencion_corta,
-               {tema_case} as tema_principal,
-               {subtema_top_case} as subtema_principal
+               tema_principal, subtema_principal
         FROM intervenciones {where}
         ORDER BY id
         LIMIT %s OFFSET %s
