@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Gestión de usuarios</h1>
+
+<article>
+    <header><strong>Crear usuario</strong></header>
+    <form method="post" action="/admin/usuarios">
+        <div class="grid">
+            <label>
+                Usuario
+                <input type="text" name="username" required>
+            </label>
+            <label>
+                Contraseña
+                <input type="password" name="password" required>
+            </label>
+            <label>
+                Rol
+                <select name="rol">
+                    <option value="tagger">Tagger</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </label>
+        </div>
+        <button type="submit">Crear</button>
+    </form>
+</article>
+
+<h3>Usuarios registrados</h3>
+<table>
+    <thead>
+        <tr><th>Usuario</th><th>Rol</th><th>Nueva contraseña</th><th>Acciones</th></tr>
+    </thead>
+    <tbody>
+        {% for u in usuarios %}
+        <tr>
+            <td>{{ u.username }}</td>
+            <td>{{ u.rol }}</td>
+            <td>
+                <form method="post" action="/admin/usuarios/{{ u.id }}/password" style="display:flex;gap:0.5rem;margin:0">
+                    <input type="password" name="password" placeholder="Nueva contraseña" required style="margin:0;padding:0.3rem">
+                    <button type="submit" class="outline" style="margin:0;padding:0.3rem 0.8rem">Cambiar</button>
+                </form>
+            </td>
+            <td>
+                {% if u.username != 'admin' %}
+                <form method="post" action="/admin/usuarios/{{ u.id }}/eliminar" style="margin:0"
+                      onsubmit="return confirm('¿Eliminar a {{ u.username }}? Se borrarán todas sus validaciones.')">
+                    <button type="submit" class="outline" style="margin:0;padding:0.3rem 0.8rem;color:#c62828;border-color:#c62828">Eliminar</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
