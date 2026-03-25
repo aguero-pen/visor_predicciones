@@ -421,7 +421,7 @@ def _build_subtema_top_case():
     return "CASE " + " ".join(branches) + " END"
 
 
-def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion=None, page=1, per_page=20):
+def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion=None, diputado=None, page=1, per_page=20):
     """Busca intervenciones con filtros y paginación."""
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -450,6 +450,9 @@ def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion
         if len(parts) == 2:
             conditions.append("tipo_sesion = %s AND nsesion = %s")
             params.extend(parts)
+    if diputado:
+        conditions.append("nombre_diputado = %s")
+        params.append(diputado)
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
@@ -467,6 +470,9 @@ def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion
         if len(parts) == 2:
             conditions_base.append("tipo_sesion = %s AND nsesion = %s")
             params_base.extend(parts)
+    if diputado:
+        conditions_base.append("nombre_diputado = %s")
+        params_base.append(diputado)
 
     where_base = ("WHERE " + " AND ".join(conditions_base)) if conditions_base else ""
 
