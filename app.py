@@ -248,18 +248,44 @@ def validar(
     return RedirectResponse(f"/revisar/{siguiente}", status_code=302)
 
 
+def _contar_validados_por_tema(mis_validados: set, total: int) -> dict:
+    resultado = {}
+    for i in mis_validados:
+        if i < total:
+            tema = _temas_cache.get(i, MAIN_THEMES[0])
+            resultado[tema] = resultado.get(tema, 0) + 1
+    return resultado
+
+
+def _elegir_tema_menos_validado(candidatos_por_tema: dict, mis_val_por_tema: dict) -> str:
+    return min(
+        candidatos_por_tema.keys(),
+        key=lambda t: mis_val_por_tema.get(t, 0)
+    )
+
+
 def seleccionar_pendiente_balanceado(usuario_id: int):
     total = contar_intervenciones()
     mis_validados = obtener_indices_validados_por_usuario(usuario_id)
     validaciones_global = obtener_indices_con_validaciones()
+    mis_val_por_tema = _contar_validados_por_tema(mis_validados, total)
 
     # Prioridad 1: items validados por otros pero no por mí (construir consenso)
+    # Balanceado por tema: elige del tema con menos validaciones mías
     en_cola = [i for i in validaciones_global if i not in mis_validados and validaciones_global[i] < 3]
     if en_cola:
-        en_cola.sort(key=lambda i: validaciones_global[i], reverse=True)
-        max_val = validaciones_global[en_cola[0]]
-        top_cola = [i for i in en_cola if validaciones_global[i] == max_val]
-        return random.choice(top_cola)
+        cola_por_tema = {}
+        for i in en_cola:
+            tema = _temas_cache.get(i, MAIN_THEMES[0])
+            cola_por_tema.setdefault(tema, []).append(i)
+
+        mejor_tema = _elegir_tema_menos_validado(cola_por_tema, mis_val_por_tema)
+        candidatos = cola_por_tema[mejor_tema]
+        # Dentro del tema, preferir los que tienen más validaciones (consenso más rápido)
+        candidatos.sort(key=lambda i: validaciones_global[i], reverse=True)
+        max_val = validaciones_global[candidatos[0]]
+        top = [i for i in candidatos if validaciones_global[i] == max_val]
+        return random.choice(top)
 
     # Prioridad 2: items no validados por nadie, balanceado por tema
     pendientes_por_tema = {}
@@ -271,16 +297,7 @@ def seleccionar_pendiente_balanceado(usuario_id: int):
     if not pendientes_por_tema:
         return None
 
-    mis_val_por_tema = {}
-    for i in mis_validados:
-        if i < total:
-            tema = _temas_cache.get(i, MAIN_THEMES[0])
-            mis_val_por_tema[tema] = mis_val_por_tema.get(tema, 0) + 1
-
-    mejor_tema = min(
-        pendientes_por_tema.keys(),
-        key=lambda t: mis_val_por_tema.get(t, 0) / (len(pendientes_por_tema[t]) + mis_val_por_tema.get(t, 0))
-    )
+    mejor_tema = _elegir_tema_menos_validado(pendientes_por_tema, mis_val_por_tema)
     return random.choice(pendientes_por_tema[mejor_tema])
 
 
