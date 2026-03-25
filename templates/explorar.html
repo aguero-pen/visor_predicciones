@@ -2,38 +2,50 @@
 {% block content %}
 <h1>Explorar intervenciones</h1>
 
-<!-- Conteos por tema -->
-<div class="pred-grid" style="margin-bottom: 1.5rem;">
-{% for c in conteos %}
-<a href="/explorar?tema={{ c.tema_principal }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}"
-   class="tema-card {% if tema == c.tema_principal %}tema-card-active{% endif %}"
-   role="button" class="outline">
-    <small>{{ formato_label(c.tema_principal) }}</small>
-    <strong>{{ c.cnt }}</strong>
+{% set base_params = "anio=" ~ anio ~ "&mes=" ~ mes ~ "&sesion=" ~ sesion %}
+
+<!-- Años -->
+<div class="filter-chips">
+{% for c in conteos_anio %}
+<a href="/explorar?tema={{ tema }}&subtema={{ subtema }}&mes={{ mes }}&sesion={{ sesion }}&anio={% if anio != c.anio_val %}{{ c.anio_val }}{% endif %}"
+   class="chip {% if anio == c.anio_val %}chip-active{% endif %}">
+    {{ c.anio_val }} <small>({{ c.cnt }})</small>
 </a>
 {% endfor %}
-{% if tema %}
-<a href="/explorar?anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}" role="button" class="outline secondary" style="align-self:center;">
-    Limpiar tema
-</a>
-{% endif %}
 </div>
 
-<!-- Filtros -->
-<details {% if anio or mes or sesion %}open{% endif %}>
-    <summary>Filtros</summary>
+<!-- Temas -->
+<h4>Tema principal</h4>
+<div class="filter-chips">
+{% for c in conteos %}
+<a href="/explorar?{{ base_params }}&tema={% if tema != c.tema_principal %}{{ c.tema_principal }}{% endif %}"
+   class="chip {% if tema == c.tema_principal %}chip-active{% endif %}">
+    {{ formato_label(c.tema_principal) }} <small>({{ c.cnt }})</small>
+</a>
+{% endfor %}
+</div>
+
+<!-- Subtemas (solo si hay tema seleccionado) -->
+{% if tema and conteos_subtema %}
+<h4>Subtema</h4>
+<div class="filter-chips">
+{% for c in conteos_subtema %}
+<a href="/explorar?{{ base_params }}&tema={{ tema }}&subtema={% if subtema != c.subtema_principal %}{{ c.subtema_principal }}{% endif %}"
+   class="chip {% if subtema == c.subtema_principal %}chip-active{% endif %}">
+    {{ formato_label(c.subtema_principal) }} <small>({{ c.cnt }})</small>
+</a>
+{% endfor %}
+</div>
+{% endif %}
+
+<!-- Filtros adicionales -->
+<details {% if mes or sesion %}open{% endif %} style="margin-top:1rem;">
+    <summary><small>Mes y sesion</small></summary>
     <form method="get" action="/explorar">
         {% if tema %}<input type="hidden" name="tema" value="{{ tema }}">{% endif %}
+        {% if subtema %}<input type="hidden" name="subtema" value="{{ subtema }}">{% endif %}
+        {% if anio %}<input type="hidden" name="anio" value="{{ anio }}">{% endif %}
         <div class="grid">
-            <label>
-                Anio
-                <select name="anio" onchange="this.form.submit()">
-                    <option value="">Todos</option>
-                    {% for a in filtros.anios %}
-                    <option value="{{ a }}" {% if anio == a %}selected{% endif %}>{{ a }}</option>
-                    {% endfor %}
-                </select>
-            </label>
             <label>
                 Mes
                 <select name="mes" onchange="this.form.submit()">
@@ -57,7 +69,7 @@
 </details>
 
 <!-- Resultados -->
-<p><small>{{ total }} intervenciones encontradas{% if tema %} en <strong>{{ formato_label(tema) }}</strong>{% endif %}</small></p>
+<p><small>{{ total }} intervenciones{% if tema %} en <strong>{{ formato_label(tema) }}</strong>{% endif %}{% if subtema %} / <strong>{{ formato_label(subtema) }}</strong>{% endif %}</small></p>
 
 {% if items %}
 <table>
@@ -85,11 +97,11 @@
     </tbody>
 </table>
 
-<!-- Paginacion -->
+{% set page_params = "tema=" ~ tema ~ "&subtema=" ~ subtema ~ "&" ~ base_params %}
 {% if total_pages > 1 %}
 <nav class="pagination-nav">
     {% if page > 1 %}
-    <a href="/explorar?tema={{ tema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}&page={{ page - 1 }}" role="button" class="outline">&#8592; Anterior</a>
+    <a href="/explorar?{{ page_params }}&page={{ page - 1 }}" role="button" class="outline">&#8592; Anterior</a>
     {% else %}
     <button disabled class="outline">&#8592; Anterior</button>
     {% endif %}
@@ -97,7 +109,7 @@
     <small>Pagina {{ page }} de {{ total_pages }}</small>
 
     {% if page < total_pages %}
-    <a href="/explorar?tema={{ tema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}&page={{ page + 1 }}" role="button" class="outline">Siguiente &#8594;</a>
+    <a href="/explorar?{{ page_params }}&page={{ page + 1 }}" role="button" class="outline">Siguiente &#8594;</a>
     {% else %}
     <button disabled class="outline">Siguiente &#8594;</button>
     {% endif %}
