@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Métricas por clase</h1>
+<p><small>Basado en validaciones manuales. El consenso se fortalece a medida que más taggers validan.</small></p>
+
+{% if metricas.temas %}
+<h3>Temas principales</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Tema</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>F1</th>
+            <th>TP</th>
+            <th>FP</th>
+            <th>FN</th>
+            <th>Soporte</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in metricas.temas %}
+        <tr>
+            <td>{{ formato_label(m.label) }}</td>
+            <td class="{% if m.precision >= 0.8 %}correct{% elif m.precision < 0.5 %}incorrect{% endif %}">
+                {{ "%.1f"|format(m.precision * 100) }}%
+            </td>
+            <td class="{% if m.recall >= 0.8 %}correct{% elif m.recall < 0.5 %}incorrect{% endif %}">
+                {{ "%.1f"|format(m.recall * 100) }}%
+            </td>
+            <td class="{% if m.f1 >= 0.8 %}correct{% elif m.f1 < 0.5 %}incorrect{% endif %}">
+                <strong>{{ "%.1f"|format(m.f1 * 100) }}%</strong>
+            </td>
+            <td>{{ m.tp }}</td>
+            <td>{{ m.fp }}</td>
+            <td>{{ m.fn }}</td>
+            <td>{{ m.support }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No hay validaciones aún.</p>
+{% endif %}
+
+{% if metricas.subtemas %}
+<h3>Subtemas</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Subtema</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>F1</th>
+            <th>TP</th>
+            <th>FP</th>
+            <th>FN</th>
+            <th>Soporte</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in metricas.subtemas %}
+        <tr>
+            <td><small>{{ formato_label(m.label) }}</small></td>
+            <td class="{% if m.precision >= 0.8 %}correct{% elif m.precision < 0.5 %}incorrect{% endif %}">
+                {{ "%.1f"|format(m.precision * 100) }}%
+            </td>
+            <td class="{% if m.recall >= 0.8 %}correct{% elif m.recall < 0.5 %}incorrect{% endif %}">
+                {{ "%.1f"|format(m.recall * 100) }}%
+            </td>
+            <td class="{% if m.f1 >= 0.8 %}correct{% elif m.f1 < 0.5 %}incorrect{% endif %}">
+                <strong>{{ "%.1f"|format(m.f1 * 100) }}%</strong>
+            </td>
+            <td>{{ m.tp }}</td>
+            <td>{{ m.fp }}</td>
+            <td>{{ m.fn }}</td>
+            <td>{{ m.support }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<a href="/" role="button" class="outline">Volver al dashboard</a>
+{% endblock %}
