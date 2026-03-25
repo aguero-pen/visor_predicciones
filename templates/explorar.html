@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Explorar intervenciones</h1>
+
+<!-- Conteos por tema -->
+<div class="pred-grid" style="margin-bottom: 1.5rem;">
+{% for c in conteos %}
+<a href="/explorar?tema={{ c.tema_principal }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}"
+   class="tema-card {% if tema == c.tema_principal %}tema-card-active{% endif %}"
+   role="button" class="outline">
+    <small>{{ formato_label(c.tema_principal) }}</small>
+    <strong>{{ c.cnt }}</strong>
+</a>
+{% endfor %}
+{% if tema %}
+<a href="/explorar?anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}" role="button" class="outline secondary" style="align-self:center;">
+    Limpiar tema
+</a>
+{% endif %}
+</div>
+
+<!-- Filtros -->
+<details {% if anio or mes or sesion %}open{% endif %}>
+    <summary>Filtros</summary>
+    <form method="get" action="/explorar">
+        {% if tema %}<input type="hidden" name="tema" value="{{ tema }}">{% endif %}
+        <div class="grid">
+            <label>
+                Anio
+                <select name="anio" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for a in filtros.anios %}
+                    <option value="{{ a }}" {% if anio == a %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Mes
+                <select name="mes" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for m in filtros.meses %}
+                    <option value="{{ m }}" {% if mes == m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Sesion
+                <select name="sesion" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for s in filtros.sesiones %}
+                    <option value="{{ s }}" {% if sesion == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+    </form>
+</details>
+
+<!-- Resultados -->
+<p><small>{{ total }} intervenciones encontradas{% if tema %} en <strong>{{ formato_label(tema) }}</strong>{% endif %}</small></p>
+
+{% if items %}
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Diputado</th>
+            <th>Fecha</th>
+            <th>Sesion</th>
+            <th>Tema</th>
+            <th>Texto</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td><a href="/revisar/{{ item.id - 1 }}">{{ item.id }}</a></td>
+            <td><small>{{ item.nombre_diputado }}</small></td>
+            <td><small>{{ item.fecha }}</small></td>
+            <td><small>{{ item.tipo_sesion }} #{{ item.nsesion }}</small></td>
+            <td><mark class="tema-badge">{{ formato_label(item.tema_principal) }}</mark></td>
+            <td><small>{{ item.intervencion_corta }}{% if item.intervencion_corta|length >= 300 %}...{% endif %}</small></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Paginacion -->
+{% if total_pages > 1 %}
+<nav class="pagination-nav">
+    {% if page > 1 %}
+    <a href="/explorar?tema={{ tema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}&page={{ page - 1 }}" role="button" class="outline">&#8592; Anterior</a>
+    {% else %}
+    <button disabled class="outline">&#8592; Anterior</button>
+    {% endif %}
+
+    <small>Pagina {{ page }} de {{ total_pages }}</small>
+
+    {% if page < total_pages %}
+    <a href="/explorar?tema={{ tema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}&page={{ page + 1 }}" role="button" class="outline">Siguiente &#8594;</a>
+    {% else %}
+    <button disabled class="outline">Siguiente &#8594;</button>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<p>No se encontraron intervenciones con estos filtros.</p>
+{% endif %}
+
+{% endblock %}
