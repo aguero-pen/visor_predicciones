@@ -1,7 +1,10 @@
 import os
 import csv
+import sys
 import hashlib
 import psycopg2
+
+csv.field_size_limit(sys.maxsize)
 from psycopg2.extras import RealDictCursor, execute_values
 from datetime import datetime
 from pathlib import Path
@@ -406,6 +409,18 @@ def _build_subtema_case(tema_label: str):
     return f"CASE {case_parts} END", subtemas
 
 
+def _build_subtema_top_case():
+    """Construye CASE SQL para obtener el subtema top según el tema principal."""
+    tema_case, _ = _build_tema_subtema_cases()
+    branches = []
+    for tema_label, subtemas in SUBTHEME_MAP_DB.items():
+        sub_cols = [s.lower() for s in subtemas]
+        greatest = "GREATEST(" + ",".join(sub_cols) + ")"
+        inner_case = " ".join(f"WHEN {col} = {greatest} THEN '{label}'" for col, label in zip(sub_cols, subtemas))
+        branches.append(f"WHEN {tema_case} = '{tema_label}' THEN (CASE {inner_case} END)")
+    return "CASE " + " ".join(branches) + " END"
+
+
 def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion=None, page=1, per_page=20):
     """Busca intervenciones con filtros y paginación."""
     conn = get_connection()
@@ -481,11 +496,13 @@ def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion
     total = cur.fetchone()["total"]
 
     # Items paginados
+    subtema_top_case = _build_subtema_top_case()
     offset = (page - 1) * per_page
     cur.execute(f"""
         SELECT id, nombre_diputado, fecha, tipo_sesion, nsesion,
                LEFT(intervencion, 300) as intervencion_corta,
-               {tema_case} as tema_principal
+               {tema_case} as tema_principal,
+               {subtema_top_case} as subtema_principal
         FROM intervenciones {where}
         ORDER BY id
         LIMIT %s OFFSET %s
