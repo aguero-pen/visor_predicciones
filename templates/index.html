@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+
+{% if user.rol == 'admin' %}
+<!-- Vista Admin -->
+<div class="grid">
+    <article>
+        <header>Total intervenciones</header>
+        <p class="stat-number">{{ total }}</p>
+    </article>
+    <article>
+        <header>Items tocados</header>
+        <p class="stat-number">{{ stats.items_tocados }}</p>
+    </article>
+    <article>
+        <header>Con consenso</header>
+        <p class="stat-number">{{ stats.con_consenso }}</p>
+    </article>
+</div>
+
+{% if stats.con_consenso > 0 %}
+<div class="grid">
+    <article>
+        <header>Consenso: Correctas</header>
+        <p class="stat-number correct">{{ stats.consenso_correctas }}</p>
+        <footer>{{ "%.1f"|format(stats.consenso_correctas / stats.con_consenso * 100) }}%</footer>
+    </article>
+    <article>
+        <header>Consenso: Incorrectas</header>
+        <p class="stat-number incorrect">{{ stats.consenso_incorrectas }}</p>
+        <footer>{{ "%.1f"|format(stats.consenso_incorrectas / stats.con_consenso * 100) }}%</footer>
+    </article>
+</div>
+{% endif %}
+
+<label>Progreso de consenso</label>
+<progress value="{{ stats.con_consenso }}" max="{{ total }}"></progress>
+<small>{{ "%.1f"|format(stats.con_consenso / total * 100) }}% con consenso</small>
+
+{% if stats.taggers %}
+<h3>Progreso por tagger</h3>
+<table>
+    <thead>
+        <tr><th>Tagger</th><th>Validaciones</th><th>Correctas</th><th>Incorrectas</th><th>Tiempo prom.</th><th>Tiempo total</th><th></th></tr>
+    </thead>
+    <tbody>
+        {% for t in stats.taggers %}
+        <tr>
+            <td>{{ t.username }}</td>
+            <td>{{ t.total or 0 }}</td>
+            <td>{{ t.correctas or 0 }}</td>
+            <td>{{ (t.total or 0) - (t.correctas or 0) }}</td>
+            <td>{{ "%.0f"|format(t.tiempo_promedio or 0) }}s</td>
+            <td>{% if (t.tiempo_total or 0) > 3600 %}{{ "%.1f"|format((t.tiempo_total or 0) / 3600) }}h{% else %}{{ "%.0f"|format((t.tiempo_total or 0) / 60) }}m{% endif %}</td>
+            <td><a href="/admin/tagger/{{ t.id }}">Ver detalle</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% else %}
+<!-- Vista Tagger -->
+<div class="grid">
+    <article>
+        <header>Total intervenciones</header>
+        <p class="stat-number">{{ total }}</p>
+    </article>
+    <article>
+        <header>Mis validaciones</header>
+        <p class="stat-number">{{ stats.validadas }}</p>
+    </article>
+    <article>
+        <header>Mis pendientes</header>
+        <p class="stat-number">{{ total - stats.validadas }}</p>
+    </article>
+</div>
+
+{% if stats.validadas > 0 %}
+<div class="grid">
+    <article>
+        <header>Marqué correctas</header>
+        <p class="stat-number correct">{{ stats.correctas }}</p>
+        <footer>{{ "%.1f"|format(stats.correctas / stats.validadas * 100) }}%</footer>
+    </article>
+    <article>
+        <header>Marqué incorrectas</header>
+        <p class="stat-number incorrect">{{ stats.incorrectas }}</p>
+        <footer>{{ "%.1f"|format(stats.incorrectas / stats.validadas * 100) }}%</footer>
+    </article>
+</div>
+
+<label>Mi progreso</label>
+<progress value="{{ stats.validadas }}" max="{{ total }}"></progress>
+<small>{{ "%.1f"|format(stats.validadas / total * 100) }}% completado</small>
+{% endif %}
+{% endif %}
+
+<div style="margin-top: 2rem; text-align: center;">
+    <a href="/pendiente" role="button">Revisar siguiente pendiente</a>
+</div>
+{% endblock %}
