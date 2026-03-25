@@ -342,12 +342,8 @@ def obtener_filtros_explorar():
     return {"anios": anios, "meses": meses, "sesiones": sesiones}
 
 
-def explorar_intervenciones(tema=None, anio=None, mes=None, sesion=None, page=1, per_page=20):
-    """Busca intervenciones con filtros y paginación. Devuelve (items, total, conteos_por_tema)."""
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-
-    # Determinar tema principal por probabilidad máxima
+def _build_tema_subtema_cases():
+    """Construye los CASE SQL para tema y subtema principal."""
     tema_cols = [
         "tema_1_pobreza_y_desigualdad", "tema_2_economia_y_empleo", "tema_3_gestion_politica",
         "tema_4_medio_ambiente", "tema_5_solvencia_del_estado", "tema_6_convivencia_social", "tema_7_otro"
@@ -356,14 +352,66 @@ def explorar_intervenciones(tema=None, anio=None, mes=None, sesion=None, page=1,
         "TEMA_1_POBREZA_Y_DESIGUALDAD", "TEMA_2_ECONOMIA_Y_EMPLEO", "TEMA_3_GESTION_POLITICA",
         "TEMA_4_MEDIO_AMBIENTE", "TEMA_5_SOLVENCIA_DEL_ESTADO", "TEMA_6_CONVIVENCIA_SOCIAL", "TEMA_7_OTRO"
     ]
-
-    # CASE para obtener el tema principal
     greatest = "GREATEST(" + ",".join(tema_cols) + ")"
-    case_parts = " ".join(
-        f"WHEN {col} = {greatest} THEN '{label}'"
-        for col, label in zip(tema_cols, tema_labels)
-    )
+    case_parts = " ".join(f"WHEN {col} = {greatest} THEN '{label}'" for col, label in zip(tema_cols, tema_labels))
     tema_case = f"CASE {case_parts} END"
+    return tema_case, tema_labels
+
+
+SUBTHEME_MAP_DB = {
+    "TEMA_1_POBREZA_Y_DESIGUALDAD": [
+        "SUBTEMA_2_DERECHOS_HUMANOS", "SUBTEMA_3_EDUCACION", "SUBTEMA_4_INGRESOS_Y_SALARIOS",
+        "SUBTEMA_5_INVERSION_SOCIAL", "SUBTEMA_6_MUJERES", "SUBTEMA_7_PERSONAS_CON_DISCAPACIDAD",
+        "SUBTEMA_8_POBREZA_Y_DESIGUALDAD", "SUBTEMA_9_SALUD_SEGURIDAD_SOCIAL",
+        "SUBTEMA_10_SEGURIDAD_CIUDADANA", "SUBTEMA_11_VIVIENDA"
+    ],
+    "TEMA_2_ECONOMIA_Y_EMPLEO": [
+        "SUBTEMA_12_AGRICULTURA_Y_AGROPECUARIO", "SUBTEMA_13_BANCA_Y_FINANZAS", "SUBTEMA_14_COMERCIO_EXTERIOR",
+        "SUBTEMA_15_CRECIMIENTO_COMPETITIVIDAD_PRODUCTIVIDAD", "SUBTEMA_16_EMPLEO_DERECHOS_TRABAJADORES",
+        "SUBTEMA_17_INDUSTRIA_Y_COMERCIO", "SUBTEMA_18_INFRAESTRUCTURA", "SUBTEMA_19_POLITICA_MONETARIA",
+        "SUBTEMA_20_PYMES_EMPRENDEDURISMO_E_INNOVACION", "SUBTEMA_21_SERVICIOS",
+        "SUBTEMA_22_TELECOMUNICACIONES_NUEVAS_TECNOLOGIAS", "SUBTEMA_23_TURISMO"
+    ],
+    "TEMA_3_GESTION_POLITICA": [
+        "SUBTEMA_24_ADMINISTRACION_DE_JUSTICIA", "SUBTEMA_25_CONFLICTIVIDAD_SOCIAL",
+        "SUBTEMA_26_CONTROLES_POLITICOS_JURIDICOS_ADMIN", "SUBTEMA_27_CORRUPCION_TRANSPARENCIA_GOB_ABIERTO",
+        "SUBTEMA_28_FINANCIAMIENTO_PARTIDOS_POLITICOS", "SUBTEMA_29_GENERACION_DE_ALIANZAS_Y_ACUERDOS",
+        "SUBTEMA_30_GOBIERNOS_LOCALES", "SUBTEMA_31_NOMBRAMIENTOS_DE_FUNCIONARIOS",
+        "SUBTEMA_32_POLITICA_EXTERIOR", "SUBTEMA_33_PROCESO_LEGISLATIVO", "SUBTEMA_34_REFORMA_DEL_ESTADO_Y_POLITICA"
+    ],
+    "TEMA_4_MEDIO_AMBIENTE": [
+        "SUBTEMA_35_BIENESTAR_ANIMAL", "SUBTEMA_36_CONSERVACION", "SUBTEMA_37_PLANIFICACION",
+        "SUBTEMA_38_SEGURIDAD_ALIMENTARIA", "SUBTEMA_39_USO_DE_LOS_RECURSOS"
+    ],
+    "TEMA_5_SOLVENCIA_DEL_ESTADO": [
+        "SUBTEMA_40_ADMINISTRACION_TRIBUTARIA", "SUBTEMA_41_EMPLEO_PUBLICO_CONVENCIONES_COLECT",
+        "SUBTEMA_42_EXONERACIONES", "SUBTEMA_43_GASTO_Y_FINANZAS_PUBLICAS", "SUBTEMA_44_IMPUESTOS"
+    ],
+    "TEMA_6_CONVIVENCIA_SOCIAL": [
+        "SUBTEMA_45_CULTURA", "SUBTEMA_46_DEPORTE_Y_RECREACION", "SUBTEMA_47_FAMILIA",
+        "SUBTEMA_48_RELIGION", "SUBTEMA_49_VALORES_Y_ETICA"
+    ],
+    "TEMA_7_OTRO": ["SUBTEMA_99_NINGUNO"],
+}
+
+
+def _build_subtema_case(tema_label: str):
+    """Construye CASE SQL para subtema dado un tema."""
+    subtemas = SUBTHEME_MAP_DB.get(tema_label, [])
+    if not subtemas:
+        return None, []
+    sub_cols = [s.lower() for s in subtemas]
+    greatest = "GREATEST(" + ",".join(sub_cols) + ")"
+    case_parts = " ".join(f"WHEN {col} = {greatest} THEN '{label}'" for col, label in zip(sub_cols, subtemas))
+    return f"CASE {case_parts} END", subtemas
+
+
+def explorar_intervenciones(tema=None, subtema=None, anio=None, mes=None, sesion=None, page=1, per_page=20):
+    """Busca intervenciones con filtros y paginación."""
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    tema_case, tema_labels = _build_tema_subtema_cases()
 
     # Construir WHERE
     conditions = []
@@ -371,6 +419,11 @@ def explorar_intervenciones(tema=None, anio=None, mes=None, sesion=None, page=1,
     if tema:
         conditions.append(f"{tema_case} = %s")
         params.append(tema)
+    if subtema and tema:
+        subtema_case, _ = _build_subtema_case(tema)
+        if subtema_case:
+            conditions.append(f"{subtema_case} = %s")
+            params.append(subtema)
     if anio:
         conditions.append("SUBSTRING(fecha,1,4) = %s")
         params.append(anio)
@@ -385,22 +438,43 @@ def explorar_intervenciones(tema=None, anio=None, mes=None, sesion=None, page=1,
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-    # Conteos por tema (con los mismos filtros excepto tema)
-    conditions_sin_tema = [c for c, p in zip(conditions, params) if c != f"{tema_case} = %s"]
-    # Rebuild params without tema
-    params_sin_tema = []
+    # Params base (sin tema ni subtema) para conteos
+    params_base = []
+    conditions_base = []
     if anio:
-        params_sin_tema.append(anio)
+        conditions_base.append("SUBSTRING(fecha,1,4) = %s")
+        params_base.append(anio)
     if mes:
-        params_sin_tema.append(mes)
+        conditions_base.append("SUBSTRING(fecha,1,7) = %s")
+        params_base.append(mes)
     if sesion:
         parts = sesion.rsplit(" #", 1)
         if len(parts) == 2:
-            params_sin_tema.extend(parts)
+            conditions_base.append("tipo_sesion = %s AND nsesion = %s")
+            params_base.extend(parts)
 
-    where_sin_tema = ("WHERE " + " AND ".join(conditions_sin_tema)) if conditions_sin_tema else ""
-    cur.execute(f"SELECT {tema_case} as tema_principal, COUNT(*) as cnt FROM intervenciones {where_sin_tema} GROUP BY tema_principal ORDER BY cnt DESC", params_sin_tema)
+    where_base = ("WHERE " + " AND ".join(conditions_base)) if conditions_base else ""
+
+    # Conteos por tema
+    cur.execute(f"SELECT {tema_case} as tema_principal, COUNT(*) as cnt FROM intervenciones {where_base} GROUP BY tema_principal ORDER BY cnt DESC", params_base)
     conteos = [dict(r) for r in cur.fetchall()]
+
+    # Conteos por subtema (solo si hay tema seleccionado)
+    conteos_subtema = []
+    if tema:
+        subtema_case, _ = _build_subtema_case(tema)
+        if subtema_case:
+            # Filtro base + tema
+            params_tema = list(params_base)
+            conds_tema = list(conditions_base) + [f"{tema_case} = %s"]
+            params_tema.append(tema)
+            where_tema = "WHERE " + " AND ".join(conds_tema)
+            cur.execute(f"SELECT {subtema_case} as subtema_principal, COUNT(*) as cnt FROM intervenciones {where_tema} GROUP BY subtema_principal ORDER BY cnt DESC", params_tema)
+            conteos_subtema = [dict(r) for r in cur.fetchall()]
+
+    # Conteos por año
+    cur.execute(f"SELECT SUBSTRING(fecha,1,4) as anio_val, COUNT(*) as cnt FROM intervenciones {where_base} GROUP BY anio_val ORDER BY anio_val", params_base)
+    conteos_anio = [dict(r) for r in cur.fetchall()]
 
     # Total con filtros
     cur.execute(f"SELECT COUNT(*) as total FROM intervenciones {where}", params)
@@ -420,7 +494,7 @@ def explorar_intervenciones(tema=None, anio=None, mes=None, sesion=None, page=1,
 
     cur.close()
     conn.close()
-    return items, total, conteos
+    return items, total, conteos, conteos_subtema, conteos_anio
 
 
 def borrar_todas_validaciones():
