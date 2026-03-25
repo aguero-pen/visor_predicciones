@@ -2,11 +2,44 @@
 {% block content %}
 <h1>Explorar intervenciones</h1>
 
-{% set base_params = "anio=" ~ anio ~ "&mes=" ~ mes ~ "&sesion=" ~ sesion ~ "&diputado=" ~ (diputado|urlencode) %}
+{% set base_params = "anio=" ~ anio ~ "&mes=" ~ mes ~ "&sesion=" ~ sesion ~ "&diputado=" ~ (diputado|urlencode) ~ "&q_diputado=" ~ (q_diputado|urlencode) ~ "&q_texto=" ~ (q_texto|urlencode) %}
 
-{% if diputado %}
+<!-- Búsquedas -->
+<div class="grid" style="margin-bottom:1rem;">
+    <form method="get" action="/explorar" style="margin:0;">
+        <input type="hidden" name="tema" value="{{ tema }}">
+        <input type="hidden" name="subtema" value="{{ subtema }}">
+        <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="sesion" value="{{ sesion }}">
+        <input type="hidden" name="diputado" value="{{ diputado }}">
+        <input type="hidden" name="q_texto" value="{{ q_texto }}">
+        <input type="text" name="q_diputado" value="{{ q_diputado }}" placeholder="Buscar diputado..." aria-label="Buscar diputado">
+    </form>
+    <form method="get" action="/explorar" style="margin:0;">
+        <input type="hidden" name="tema" value="{{ tema }}">
+        <input type="hidden" name="subtema" value="{{ subtema }}">
+        <input type="hidden" name="anio" value="{{ anio }}">
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="sesion" value="{{ sesion }}">
+        <input type="hidden" name="diputado" value="{{ diputado }}">
+        <input type="hidden" name="q_diputado" value="{{ q_diputado }}">
+        <input type="text" name="q_texto" value="{{ q_texto }}" placeholder="Buscar en texto..." aria-label="Buscar en texto">
+    </form>
+</div>
+
+<!-- Filtros activos -->
+{% if diputado or q_diputado or q_texto %}
 <div class="filter-chips" style="margin-bottom:1rem;">
-    <span class="chip chip-active">{{ diputado }} <a href="/explorar?tema={{ tema }}&subtema={{ subtema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}" style="color:inherit;margin-left:0.3rem;">&times;</a></span>
+    {% if diputado %}
+    <span class="chip chip-active">{{ diputado }} <a href="/explorar?tema={{ tema }}&subtema={{ subtema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}&q_diputado={{ q_diputado|urlencode }}&q_texto={{ q_texto|urlencode }}" style="color:inherit;margin-left:0.3rem;">&times;</a></span>
+    {% endif %}
+    {% if q_diputado %}
+    <span class="chip chip-active">Diputado: "{{ q_diputado }}" <a href="/explorar?tema={{ tema }}&subtema={{ subtema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}&diputado={{ diputado|urlencode }}&q_texto={{ q_texto|urlencode }}" style="color:inherit;margin-left:0.3rem;">&times;</a></span>
+    {% endif %}
+    {% if q_texto %}
+    <span class="chip chip-active">Texto: "{{ q_texto }}" <a href="/explorar?tema={{ tema }}&subtema={{ subtema }}&anio={{ anio }}&mes={{ mes }}&sesion={{ sesion }}&diputado={{ diputado|urlencode }}&q_diputado={{ q_diputado|urlencode }}" style="color:inherit;margin-left:0.3rem;">&times;</a></span>
+    {% endif %}
 </div>
 {% endif %}
 
