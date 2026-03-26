@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: visor
+      POSTGRES_PASSWORD: visor_pass_2026
+      POSTGRES_DB: visor_predicciones
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+  app:
+    image: ghcr.io/aguero-pen/visor_predicciones:latest
+    environment:
+      DATABASE_URL: postgresql://visor:visor_pass_2026@db:5432/visor_predicciones
+      SECRET_KEY: ${SECRET_KEY}
+    ports:
+      - "8001:8000"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 10
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+volumes:
+  pgdata:
