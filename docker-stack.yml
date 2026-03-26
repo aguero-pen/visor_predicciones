@@ -30,9 +30,13 @@ services:
 
   tunnel:
     image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    configs:
+      - source: cf_config
+        target: /etc/cloudflared/config.yml
+    secrets:
+      - source: cf_credentials
+        target: /etc/cloudflared/credentials.json
     deploy:
       restart_policy:
         condition: on-failure
@@ -40,3 +44,11 @@ services:
 
 volumes:
   pgdata:
+
+configs:
+  cf_config:
+    external: true
+
+secrets:
+  cf_credentials:
+    external: true
