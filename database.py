@@ -160,7 +160,7 @@ def init_db():
     cur.execute("SELECT id FROM usuarios WHERE username = 'admin'")
     if not cur.fetchone():
         cur.execute("INSERT INTO usuarios (username, password_hash, rol) VALUES (%s, %s, %s)",
-                    ("admin", _hash_password("admin"), "admin"))
+                    ("admin", _hash_password("8g$8*X%i!g3qvy4"), "admin"))
     conn.commit()
     cur.close()
     conn.close()
