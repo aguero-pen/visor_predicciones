@@ -3,8 +3,10 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: visor
-      POSTGRES_PASSWORD: visor_pass_2026
+      POSTGRES_PASSWORD: tUD6Jm3y374y
       POSTGRES_DB: visor_predicciones
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     deploy:
@@ -18,7 +20,7 @@ services:
   app:
     image: ghcr.io/aguero-pen/visor_predicciones:latest
     environment:
-      DATABASE_URL: postgresql://visor:visor_pass_2026@db:5432/visor_predicciones
+      DATABASE_URL: postgresql://visor:tUD6Jm3y374y@db:5432/visor_predicciones
       SECRET_KEY: ${SECRET_KEY}
     ports:
       - "8001:8000"
